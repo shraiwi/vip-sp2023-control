@@ -1,2 +1,2 @@
-git+https://github.com/LiamBindle/PyVESC.git
+git+https://github.com/LiamBindle/PyVESC
 pyserial
