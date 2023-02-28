@@ -6,7 +6,7 @@ def add(a, b):
 
 def wait(seconds):
 	if seconds == 1:
-		print(f"waiting for one second...")
+		print("waiting for one second...")
 	else:
 		print(f"waiting for {seconds} seconds...")
 	time.sleep(seconds)
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 			try: user_command = input("\r> ").strip()
 			except EOFError:
 				print("eof reached, exiting...")
-				sys.exit(0);
+				sys.exit(0)
 
 			if len(user_command) == 0 or user_command.startswith("#"): continue
 
