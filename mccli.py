@@ -13,7 +13,7 @@ def wait(seconds):
 
 COMMANDS = {
 	# "command name": (method to be called, 1st arg parser, 2nd arg parser, etc...)
-	"add": (add, str, str),
+	"add": (add, float, float),
 	"wait": (wait, float),
 }
 
@@ -30,7 +30,12 @@ if __name__ == "__main__":
 
 	while True:
 		try:
-			user_command = input("> ")
+			try: user_command = input("\r> ").strip()
+			except EOFError:
+				print("eof reached, exiting...")
+				sys.exit(0);
+
+			if len(user_command) == 0 or user_command.startswith("#"): continue
 
 			for command_name, (fn, *arg_parsers) in COMMANDS.items():
 				if user_command.startswith(command_name):
@@ -44,11 +49,11 @@ if __name__ == "__main__":
 							parsed_args.append(arg_parser(user_arg))
 
 						fn(*parsed_args)
+						break
+			else:
+				print("no matching command found!")
 
 		except KeyboardInterrupt:
 			print("\nkeyboard interrupt, exiting...")
 			# todo: add exit cleanup
 			sys.exit(0)
-
-
-		pass
