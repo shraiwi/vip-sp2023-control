@@ -1,0 +1,6 @@
+# test script
+
+wait 2
+add 5 2
+wait 5
+add 10 20
