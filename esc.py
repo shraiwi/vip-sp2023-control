@@ -47,7 +47,8 @@ class LoggerThread(threading.Thread):
 
 	def run(self):
 		while not self._stop_event.is_set():
-			self.esc.data.append(self.esc.read_state())
+			if (state := self.esc.read_state()) is not None:
+				self.esc.data.append(state)
 			time.sleep(1 / ESC.DATA_RATE_HZ)
 			
 
@@ -75,7 +76,7 @@ class ESC():
 		yield "# " + ",".join(props)
 		for row in self.data:
 			if isinstance(row, SysState):
-				yield ",".join(get_props(row))
+				yield ",".join(map(str, get_props(row)))
 			elif isinstance(row, tuple):
 				time, cmd = row
 				yield f"# ({time}) \"{cmd}\""
@@ -135,7 +136,9 @@ class VESC(ESC):
 		return super().__exit__(*args, **kwargs)
 
 	def read_state(self) -> SysState:
-		vesc_state = self.get_measurements()
+		vesc_state = self.vesc.get_measurements()
+
+		if vesc_state is None: return None
 
 		sys_state = SysState(
 			sample_time=super().get_time(),
