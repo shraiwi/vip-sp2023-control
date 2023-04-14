@@ -1,7 +1,17 @@
 import sys, time, esc, dyno
+from datetime import datetime
 
 class ExitCommandError(BaseException):
 	pass
+
+def get_csv_name():
+	return datetime.now().strftime(r"mccli_%m_%d_%Y_%H:%M:%S.csv")
+
+def cmd_help():
+	global COMMANDS
+	print("available commands:")
+	for command in COMMANDS.keys():
+		print(f"\t{command}")
 
 def cmd_exit():
 	raise ExitCommandError()
@@ -15,6 +25,7 @@ def cmd_wait(seconds):
 
 COMMANDS = {
 	# "command name": (method to be called, 1st arg parser, 2nd arg parser, etc...)
+	"help": (cmd_help,),
 	"add": (cmd_add, float, float,),
 	"wait": (cmd_wait, float,),
 	"exit": (cmd_exit,),
@@ -38,7 +49,7 @@ if __name__ == "__main__":
 		print(f"initialization ok, registering new commands...")
 		COMMANDS.update({
 			"set_rpm": (esc_obj.write_rpm, int),
-			"set_duty": (lambda d: esc_obj.write_rpm(int(d * 1e5)), float),
+			"set_duty": (esc_obj.write_duty, float),
 			"print_state": (lambda: print(esc_obj.read_state()),),
 		})
 
@@ -68,6 +79,7 @@ if __name__ == "__main__":
 								raise ExitCommandError()
 							except Exception as ex:
 								print(f"error {ex} occured while running command \"{user_command}\"")
+
 							break
 				else:
 					print("no matching command found!")
@@ -75,9 +87,14 @@ if __name__ == "__main__":
 			except KeyboardInterrupt:
 				print("\nkeyboard interrupt, exiting...")
 				# todo: add exit cleanup
-				sys.exit(0)
+				break
 			except ExitCommandError:
 				print("\nexiting...")
-				sys.exit(0)
+				break
 
+		fpath = get_csv_name()
+		with open(fpath, "w") as f:
+			FIELDS = ("sample_time", "motor_angvel", "motor_power")
+			print(f"writing fields {FIELDS} to {fpath}")
+			f.write("\n".join(esc_obj.get_csv(*FIELDS)))
 

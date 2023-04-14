@@ -1,7 +1,18 @@
 import pyvesc
 from operator import attrgetter
 from dataclasses import dataclass
-import math, time
+import math, time, os
+
+from pyvesc.protocol.base import VESCMessage
+from pyvesc.protocol.interface import encode
+from pyvesc.VESC.messages import VedderCmd, Alive
+
+class VESCReboot(metaclass=pyvesc.protocol.base.VESCMessage):
+	id = VedderCmd.COMM_REBOOT
+	fields = []
+
+vescreboot_msg = encode(VESCReboot())
+alive_msg = encode(Alive())
 
 @dataclass
 class SysState:
@@ -25,9 +36,6 @@ class SysState:
 	def motor_angvel(self): 
 		return self.motor_rpm * (math.pi * 2.0 / 60.0)
 
-	def to_csv(self, *props):
-		return ",".join(attrgetter(props)(self))
-
 
 class ESC():
 	DATA_RATE_HZ = 10
@@ -45,15 +53,32 @@ class ESC():
 		# stop thread here
 		pass
 
-	def read_state(self) -> SysState:
-		pass
+	def get_csv(self, *props):
+		get_props = attrgetter(*props)
+		yield "# " + ",".join(props)
+		for row in self.data:
+			if isinstance(row, SysState):
+				yield ",".join(get_props(row))
+			elif isinstance(row, tuple):
+				time, cmd = row
+				yield f"# ({time}) \"{cmd}\""
 
-	def write_rpm(self, rpm : float):
-		pass
+	def get_time(self):
+		return time.time() - self.start_time
+
+	def read_state(self) -> SysState:
+		raise Exception("not implemented")
+
+	def write_rpm(self, rpm : int):
+		self.data.append((self.get_time(), f"write_rpm {rpm}"))
+
+	def write_duty(self, duty : float):
+		self.data.append((self.get_time(), f"write_duty {duty}"))
+
 
 class DummyESC(ESC):
-	def __init__(self, port : str):
-		super().__init__(port)
+	def __init__(self, serial_port : str):
+		super().__init__(serial_port)
 		self.rpm = 0
 
 	def __enter__(self):
@@ -69,30 +94,64 @@ class DummyESC(ESC):
 
 		return SysState(0, 0, 0, self.rpm)
 
-	def write_rpm(self, rpm : float):
+	def write_rpm(self, rpm : int):
+		super().write_rpm(rpm)
+
 		print(f"dummy esc write rpm {rpm}")
 
 		self.rpm = rpm
 
-class VESC(pyvesc.VESC):
-	def __init__(self, **kwargs):
-		print(kwargs)
-		super().__init__(**kwargs)
+	def write_duty(self, duty : float):
+		super().write_duty(duty)
+
+		print(f"dummy esc write duty {duty}")
+
+class VESC(ESC):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+		"""print("rebooting vesc...")
+		vesc = pyvesc.VESC(*args, **kwargs, start_heartbeat=False)
+		vesc.write(alive_msg)
+		vesc.write(vescreboot_msg)
+		if vesc.serial_port.is_open:
+			vesc.serial_port.flush()
+			vesc.serial_port.close()
+
+		while os.path.exists(kwargs["serial_port"]):
+			time.sleep(0.1)
+
+		while not os.path.exists(kwargs["serial_port"]):
+			print("waiting for vesc...")
+			time.sleep(1.0)"""
+
+		self.vesc = pyvesc.VESC(*args, **kwargs)
+
+	def __enter__(self):
+		return super().__enter__()
+
+	def __exit__(self, *args, **kwargs):
+		self.vesc.__exit__(*args, **kwargs)
+		return super().__exit__(*args, **kwargs)
 
 	def read_state(self) -> SysState:
-		vesc_state = super().get_measurements()
+		vesc_state = self.get_measurements()
 
 		sys_state = SysState(
-			sample_time=time.time() - super().start_time,
+			sample_time=super().get_time(),
 			sys_voltage=vesc_state.v_in,
 			sys_current=vesc_state.avg_input_current,
 			motor_current=vesc_state.avg_motor_current,
 			motor_rpm=vesc_state.rpm
 		)
 
-		self.data[sys_state.sample_time] = sys_state
-
 		return sys_state
 
 	def write_rpm(self, rpm : int):
-		super().set_rpm(rpm)
+		super().write_rpm(rpm)
+		self.vesc.set_rpm(int(rpm))
+
+	def write_duty(self, duty : float):
+		duty = min(max(duty, 0.0), 1.0)
+		super().write_duty(duty)
+		self.vesc.set_duty_cycle(duty)
