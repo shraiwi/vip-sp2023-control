@@ -25,14 +25,24 @@ class SysState:
 	def motor_angvel(self): 
 		return self.motor_rpm * (math.pi * 2.0 / 60.0)
 
+	def to_csv(self, *props):
+		return ",".join(attrgetter(props)(self))
+
+
 class ESC():
+	DATA_RATE_HZ = 10
+
 	def __init__(self, serial_port : str):
+		# append from self.read_state() in new thread at ESC.DATA_RATE_HZ
 		self.data = []
 
 	def __enter__(self):
+		# start thread here
+		self.start_time = time.time()
 		return self
 
 	def __exit__(self, *args):
+		# stop thread here
 		pass
 
 	def read_state(self) -> SysState:
@@ -73,7 +83,7 @@ class VESC(pyvesc.VESC):
 		vesc_state = super().get_measurements()
 
 		sys_state = SysState(
-			sample_time=time.time(),
+			sample_time=time.time() - super().start_time,
 			sys_voltage=vesc_state.v_in,
 			sys_current=vesc_state.avg_input_current,
 			motor_current=vesc_state.avg_motor_current,
