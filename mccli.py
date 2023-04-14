@@ -32,13 +32,14 @@ if __name__ == "__main__":
 	mkesc = esc.DummyESC if esc_port == "-" else esc.VESC
 	mkdyno = dyno.DummyDyno
 
-	with mkesc(esc_port) as esc_obj, mkdyno(dyno_port) as dyno_obj:
+	with mkesc(serial_port=esc_port) as esc_obj, mkdyno(dyno_port) as dyno_obj:
 		print(f"\tesc port: {esc_port}\n\tdyno port: {dyno_port}")
 
 		print(f"initialization ok, registering new commands...")
 		COMMANDS.update({
-			"set_rpm": (esc_obj.write_rpm, float),
-			"read_state": (esc_obj.read_state,),
+			"set_rpm": (esc_obj.write_rpm, int),
+			"set_duty": (lambda d: esc_obj.write_rpm(int(d * 1e5)), float),
+			"print_state": (lambda: print(esc_obj.read_state()),),
 		})
 
 		while True:
@@ -61,7 +62,12 @@ if __name__ == "__main__":
 							for arg_parser, user_arg in zip(arg_parsers, user_args):
 								parsed_args.append(arg_parser(user_arg))
 
-							fn(*parsed_args)
+							try:
+								fn(*parsed_args)
+							except ExitCommandError:
+								raise ExitCommandError()
+							except Exception as ex:
+								print(f"error {ex} occured while running command \"{user_command}\"")
 							break
 				else:
 					print("no matching command found!")
