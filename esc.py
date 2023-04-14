@@ -1,7 +1,7 @@
 import pyvesc
 from operator import attrgetter
 from dataclasses import dataclass
-import math, time, os
+import math, time, os, threading
 
 from pyvesc.protocol.base import VESCMessage
 from pyvesc.protocol.interface import encode
@@ -36,6 +36,20 @@ class SysState:
 	def motor_angvel(self): 
 		return self.motor_rpm * (math.pi * 2.0 / 60.0)
 
+class LoggerThread(threading.Thread):
+	def __init__(self, esc):
+		super().__init__()
+		self.esc = esc
+		self._stop_event = threading.Event()
+
+	def stop(self):
+		self._stop_event.set()
+
+	def run(self):
+		while not self._stop_event.is_set():
+			self.esc.data.append(self.esc.read_state())
+			time.sleep(1 / ESC.DATA_RATE_HZ)
+			
 
 class ESC():
 	DATA_RATE_HZ = 10
@@ -47,10 +61,13 @@ class ESC():
 	def __enter__(self):
 		# start thread here
 		self.start_time = time.time()
+		self.logger_thread = LoggerThread(self)
+		self.logger_thread.start()
 		return self
 
 	def __exit__(self, *args):
 		# stop thread here
+		self.logger_thread.stop()
 		pass
 
 	def get_csv(self, *props):
@@ -74,7 +91,6 @@ class ESC():
 
 	def write_duty(self, duty : float):
 		self.data.append((self.get_time(), f"write_duty {duty}"))
-
 
 class DummyESC(ESC):
 	def __init__(self, serial_port : str):
@@ -109,22 +125,6 @@ class DummyESC(ESC):
 class VESC(ESC):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
-
-		"""print("rebooting vesc...")
-		vesc = pyvesc.VESC(*args, **kwargs, start_heartbeat=False)
-		vesc.write(alive_msg)
-		vesc.write(vescreboot_msg)
-		if vesc.serial_port.is_open:
-			vesc.serial_port.flush()
-			vesc.serial_port.close()
-
-		while os.path.exists(kwargs["serial_port"]):
-			time.sleep(0.1)
-
-		while not os.path.exists(kwargs["serial_port"]):
-			print("waiting for vesc...")
-			time.sleep(1.0)"""
-
 		self.vesc = pyvesc.VESC(*args, **kwargs)
 
 	def __enter__(self):
