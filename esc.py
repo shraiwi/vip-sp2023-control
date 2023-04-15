@@ -7,11 +7,6 @@ from pyvesc.protocol.base import VESCMessage
 from pyvesc.protocol.interface import encode
 from pyvesc.VESC.messages import VedderCmd, Alive
 
-class VESCReboot(metaclass=pyvesc.protocol.base.VESCMessage):
-	id = VedderCmd.COMM_REBOOT
-	fields = []
-
-vescreboot_msg = encode(VESCReboot())
 alive_msg = encode(Alive())
 
 @dataclass
@@ -87,6 +82,9 @@ class ESC():
 	def read_state(self) -> SysState:
 		raise Exception("not implemented")
 
+	def reboot(self):
+		raise Exception("not implemented")
+
 	def write_rpm(self, rpm : int):
 		self.data.append((self.get_time(), f"write_rpm {rpm}"))
 
@@ -157,6 +155,14 @@ class VESC(ESC):
 		)
 
 		return sys_state
+
+	def reboot(self):
+		class VESCReboot(metaclass=pyvesc.protocol.base.VESCMessage):
+			id = VedderCmd.COMM_REBOOT
+			fields = []
+
+		REBOOT = encode(VESCReboot())
+		self.vesc.write(encode(VESCReboot()))
 
 	def write_rpm(self, rpm : int):
 		super().write_rpm(rpm)

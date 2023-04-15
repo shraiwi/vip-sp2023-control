@@ -68,12 +68,17 @@ if __name__ == "__main__":
 
 			print("\nsweep complete.")
 
+		def cmd_reboot():
+			print("rebooting esc")
+			esc.reboot()
+			raise ExitCommandError
 
 		print(f"initialization ok, registering new commands...")
 		COMMANDS.update({
 			"set_rpm": (esc_obj.write_rpm, int),
 			"set_duty": (esc_obj.write_duty, float),
 			"sweep_duty": (cmd_sweep_duty, float, float, float),
+			"reboot": (cmd_reboot,),
 			"print_state": (lambda: print(esc_obj.read_state()),),
 		})
 
