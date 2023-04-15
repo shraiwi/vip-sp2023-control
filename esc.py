@@ -53,7 +53,7 @@ class LoggerThread(threading.Thread):
 			
 
 class ESC():
-	DATA_RATE_HZ = 10
+	DATA_RATE_HZ = 20
 
 	def __init__(self, serial_port : str):
 		# append from self.read_state() in new thread at ESC.DATA_RATE_HZ
@@ -104,24 +104,32 @@ class DummyESC(ESC):
 
 	def __exit__(self, *args):
 		print("dummy esc stop")
-		pass
+		return super().__exit__(*args)
 
 	def read_state(self) -> SysState:
-		print(f"dummy esc read state {SysState(0, 0, 0, self.rpm)}")
+		sys_state = SysState(
+			sample_time=super().get_time(),
+			sys_voltage=0.0,
+			sys_current=0.0,
+			motor_current=0.0,
+			motor_rpm=self.rpm
+		)
 
-		return SysState(0, 0, 0, self.rpm)
+		# print(f"dummy esc read state {sys_state}")
+
+		return sys_state
 
 	def write_rpm(self, rpm : int):
 		super().write_rpm(rpm)
 
-		print(f"dummy esc write rpm {rpm}")
+		# print(f"dummy esc write rpm {rpm}")
 
 		self.rpm = rpm
 
 	def write_duty(self, duty : float):
 		super().write_duty(duty)
 
-		print(f"dummy esc write duty {duty}")
+		# print(f"dummy esc write duty {duty}")
 
 class VESC(ESC):
 	def __init__(self, *args, **kwargs):

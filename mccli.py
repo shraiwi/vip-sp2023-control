@@ -7,6 +7,10 @@ class ExitCommandError(BaseException):
 def get_csv_name():
 	return datetime.now().strftime(r"mccli_%m_%d_%Y_%H:%M:%S.csv")
 
+def prog_bar(p : float, width : int = 40):
+	n = int(p * width)
+	return f"{int(p * 100)}% [{'#'*n + ' '*(width-n)}]"
+
 def cmd_help():
 	global COMMANDS
 	print("available commands:")
@@ -16,17 +20,15 @@ def cmd_help():
 def cmd_exit():
 	raise ExitCommandError()
 
-def cmd_add(a, b):
-	print(f"{a} + {b} = {a+b}")
-
 def cmd_wait(seconds):
 	print(f"waiting for {seconds} seconds...")
 	time.sleep(seconds)
 
+SWEEP_UPDATE_RATE = 20
+
 COMMANDS = {
 	# "command name": (method to be called, 1st arg parser, 2nd arg parser, etc...)
 	"help": (cmd_help,),
-	"add": (cmd_add, float, float,),
 	"wait": (cmd_wait, float,),
 	"exit": (cmd_exit,),
 }
@@ -46,10 +48,32 @@ if __name__ == "__main__":
 	with mkesc(serial_port=esc_port) as esc_obj, mkdyno(dyno_port) as dyno_obj:
 		print(f"\tesc port: {esc_port}\n\tdyno port: {dyno_port}")
 
+		def cmd_sweep_duty(duty_start, duty_end, duration):
+			time_start = time.time()
+			time_end = time_start + duration
+
+			esc_obj.write_duty(duty_start)
+
+			while (t := time.time()) < time_end:
+
+				prog = (t - time_start) / duration
+				duty = prog * (duty_end - duty_start) + duty_start
+
+				print(f"\rduty={duty:.3f} {prog_bar(prog)}", end='')
+				esc_obj.write_duty(duty)
+
+				time.sleep(1 / SWEEP_UPDATE_RATE)
+
+			esc_obj.write_duty(duty_end)
+
+			print("\nsweep complete.")
+
+
 		print(f"initialization ok, registering new commands...")
 		COMMANDS.update({
 			"set_rpm": (esc_obj.write_rpm, int),
 			"set_duty": (esc_obj.write_duty, float),
+			"sweep_duty": (cmd_sweep_duty, float, float, float),
 			"print_state": (lambda: print(esc_obj.read_state()),),
 		})
 
