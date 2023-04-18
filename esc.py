@@ -75,6 +75,10 @@ class ESC():
 			elif isinstance(row, tuple):
 				time, cmd = row
 				yield f"# ({time}) \"{cmd}\""
+	def get_dict(self, *props):
+		get_props = attrgetter(*props)
+		ret = {}
+		
 
 	def get_time(self):
 		return time.time() - self.start_time

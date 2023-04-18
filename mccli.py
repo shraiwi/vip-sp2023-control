@@ -1,4 +1,4 @@
-import sys, time, esc, dyno
+import sys, time, esc, dyno, datavis
 from datetime import datetime
 
 class ExitCommandError(BaseException):
@@ -126,4 +126,6 @@ if __name__ == "__main__":
 			FIELDS = ("sample_time", "motor_angvel", "motor_power")
 			print(f"writing fields {FIELDS} to {fpath}")
 			f.write("\n".join(esc_obj.get_csv(*FIELDS)))
+
+		datavis.data_vis(fpath)
 
