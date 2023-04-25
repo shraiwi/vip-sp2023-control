@@ -1,6 +1,19 @@
-# test script
+# experiment start
 
 wait 2
-add 5 2
+# set duty to 10%
+set_duty 0.1
+
+# wait 5s to stabilize speed
 wait 5
-add 10 20
+
+# sweep duty from 10% duty to 100% duty in 5 seconds.
+sweep_duty 0.1 1.0 5
+
+# wait 5s to stabilize speed
+wait 5
+
+# sweep duty from 100% to 0% in 10s, stop motor.
+sweep_duty 1.0 0.0 10
+
+# experiment complete

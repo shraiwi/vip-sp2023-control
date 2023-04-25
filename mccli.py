@@ -1,6 +1,12 @@
 import sys, time, esc, dyno
 from datetime import datetime
 
+CMD_UPDATE_RATE = 20
+
+MOTOR_PARAMS = {
+	"moment_of_inertia": 1.0
+}
+
 class ExitCommandError(BaseException):
 	pass
 
@@ -20,11 +26,21 @@ def cmd_help():
 def cmd_exit():
 	raise ExitCommandError()
 
-def cmd_wait(seconds):
-	print(f"waiting for {seconds} seconds...")
-	time.sleep(seconds)
+def cmd_wait(duration):
+	print(f"waiting for {duration} seconds...")
+	time_start = time.time()
+	time_end = time_start + duration
 
-SWEEP_UPDATE_RATE = 20
+	while (t := time.time()) < time_end:
+
+		prog = (t - time_start) / duration
+
+		print(f"\r {t - time_start:.3f}s {prog_bar(prog)}", end='')
+
+		time.sleep(1 / CMD_UPDATE_RATE)
+
+	print("\nwait complete.")
+
 
 COMMANDS = {
 	# "command name": (method to be called, 1st arg parser, 2nd arg parser, etc...)
@@ -62,7 +78,7 @@ if __name__ == "__main__":
 				print(f"\rduty={duty:.3f} {prog_bar(prog)}", end='')
 				esc_obj.write_duty(duty)
 
-				time.sleep(1 / SWEEP_UPDATE_RATE)
+				time.sleep(1 / CMD_UPDATE_RATE)
 
 			esc_obj.write_duty(duty_end)
 
@@ -86,10 +102,12 @@ if __name__ == "__main__":
 			try:
 				try: user_command = input("\r> ").strip()
 				except EOFError:
-					print("eof reached, exiting...")
-					sys.exit(0)
+					print("eof reached, interpreting as exit cmd")
+					raise ExitCommandError()
 
-				if len(user_command) == 0 or user_command.startswith("#"): continue
+				if len(user_command) == 0 or user_command.startswith("#"):
+					print(user_command)
+					continue
 
 				for command_name, (fn, *arg_parsers) in COMMANDS.items():
 					if user_command.startswith(command_name):
@@ -123,7 +141,9 @@ if __name__ == "__main__":
 
 		fpath = get_csv_name()
 		with open(fpath, "w") as f:
-			FIELDS = ("sample_time", "motor_angvel", "motor_power")
+			FIELDS = ("sample_time", 
+				"sys_current", "sys_efficiency",
+				"motor_current", "motor_power", "motor_rpm", "motor_torque")
 			print(f"writing fields {FIELDS} to {fpath}")
-			f.write("\n".join(esc_obj.get_csv(*FIELDS)))
+			f.write("\n".join(esc_obj.get_csv(*FIELDS, motor_params=MOTOR_PARAMS)))
 

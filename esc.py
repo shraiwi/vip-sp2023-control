@@ -28,8 +28,19 @@ class SysState:
 		return self.sys_voltage * self.sys_current
 
 	@property
+	def sys_efficiency(self): 
+		if self.sys_current == 0.0: return 0.0
+		return self.motor_current / self.sys_current
+
+	@property
 	def motor_angvel(self): 
 		return self.motor_rpm * (math.pi * 2.0 / 60.0)
+
+	def motor_angaccel_from(self, o, **motor_params):
+		return (o.motor_angvel - self.motor_angvel) / (o.sample_time - self.sample_time)
+
+	def motor_torque_from(self, o, **motor_params):
+		return self.motor_angaccel_from(o) * motor_params["moment_of_inertia"]
 
 class LoggerThread(threading.Thread):
 	def __init__(self, esc):
@@ -66,13 +77,36 @@ class ESC():
 		self.logger_thread.stop()
 		pass
 
-	def get_csv(self, *props):
-		get_props = attrgetter(*props)
-		yield "# " + ",".join(props)
+	def get_csv(self, *props, include_cmds=False, motor_params={}):
+
+		COMPUTED_PROPS = ("motor_angaccel", "motor_torque")
+
+		props_to_read = tuple(prop for prop in props if prop not in COMPUTED_PROPS)
+		props_to_compute = tuple(prop for prop in props if prop in COMPUTED_PROPS)
+
+		get_static_props = attrgetter(*props_to_read)
+		
+		last_sys_state = None
+
+		print(f"read props: {props_to_read}, compute props: {props_to_compute}")
+
+		yield ",".join((*props_to_read, *props_to_compute))
+
 		for row in self.data:
 			if isinstance(row, SysState):
-				yield ",".join(map(str, get_props(row)))
-			elif isinstance(row, tuple):
+				row_data = [*get_static_props(row)]
+
+				if last_sys_state is None:
+					for prop in props_to_compute:
+						row_data.append(0.0)
+				else:
+					for prop in props_to_compute:
+						if prop == "motor_angaccel": row_data.append(row.motor_angaccel_from(last_sys_state, **motor_params))
+						elif prop == "motor_torque": row_data.append(row.motor_torque_from(last_sys_state, **motor_params))
+
+				yield ",".join(map(str, row_data))
+				last_sys_state = row
+			elif isinstance(row, tuple) and include_cmds:
 				time, cmd = row
 				yield f"# ({time}) \"{cmd}\""
 
