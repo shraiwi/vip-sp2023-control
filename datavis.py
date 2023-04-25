@@ -33,6 +33,13 @@ def data_vis(csv):
     plt.yscale('log')
     plt.ylabel('motor_power')
 
+    # motor_torque vs. motor_rpm
+    fig4 = plt.figure()
+    sns.scatterplot(x='motor_rpm', y='motor_torque', data=dataFrame, color='purple')
+    
+    plt.title(csv.rstrip('.csv'))
+    plt.ylabel('motor_torque')
+
     # Display figures
     plt.show()
 
