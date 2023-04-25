@@ -1,4 +1,4 @@
-import sys, time, esc, dyno
+import sys, time, esc, dyno, datavis
 from datetime import datetime
 
 CMD_UPDATE_RATE = 20
@@ -146,4 +146,6 @@ if __name__ == "__main__":
 				"motor_current", "motor_power", "motor_rpm", "motor_torque")
 			print(f"writing fields {FIELDS} to {fpath}")
 			f.write("\n".join(esc_obj.get_csv(*FIELDS, motor_params=MOTOR_PARAMS)))
+
+		datavis.data_vis(fpath)
 
